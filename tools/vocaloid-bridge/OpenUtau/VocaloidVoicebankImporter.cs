@@ -118,7 +118,7 @@ namespace OpenUtau.Core.Vocaloid {
             config.Revision = Guid.NewGuid().ToString("N");
             config.TimeoutSeconds = Math.Max(config.TimeoutSeconds, 120);
             string name = voice.Name.Replace('\r', ' ').Replace('\n', ' ');
-            string displayName = voice.Ready ? name : name + " [待 V5 授权]";
+            string displayName = voice.Ready ? name : name + " [待渲染验证]";
             // Preserve any user-authored artwork/name metadata on idempotent re-import.
             string character = Path.Combine(destination, "character.txt");
             string voiceMetadata = Path.Combine(destination, "vocaloid-voice.json");
@@ -126,8 +126,16 @@ namespace OpenUtau.Core.Vocaloid {
             if (!updateName && File.Exists(voiceMetadata)) {
                 try {
                     var previous = JsonSerializer.Deserialize<BridgeVoice>(File.ReadAllText(voiceMetadata));
-                    string oldName = previous == null ? "" : previous.Name + (previous.Ready ? "" : " [待 V5 授权]");
-                    updateName = File.ReadAllLines(character).Contains("name=" + oldName);
+                    if (previous != null && !string.IsNullOrWhiteSpace(previous.Name)) {
+                        string oldBaseName = previous.Name.Replace('\r', ' ').Replace('\n', ' ');
+                        string[] generatedNames = {
+                            oldBaseName,
+                            oldBaseName + " [待 V5 授权]",
+                            oldBaseName + " [待渲染验证]",
+                        };
+                        var existingLines = File.ReadAllLines(character);
+                        updateName = generatedNames.Any(oldName => existingLines.Contains("name=" + oldName));
+                    }
                 } catch (JsonException) { }
             }
             if (updateName) {

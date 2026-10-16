@@ -15,7 +15,9 @@ namespace VocaloidBridge {
         public int Generation { get; set; }
         public string ComponentId { get; set; } = "";
         public string DatabasePath { get; set; } = "";
+        // VDM license-record count, not an activation verdict or a render test.
         public int LicenseCount { get; set; } = -1;
+        // Compatibility catalog flag. A false value must never prevent a render attempt.
         public bool Ready { get; set; } = true;
     }
 

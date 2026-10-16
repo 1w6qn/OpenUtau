@@ -85,7 +85,9 @@ namespace VocaloidBridge.V5 {
         static Audio Render(Assembly api,object manager,object dbm,Dictionary<string,object> request,string temp,double headMs,double tailMs) {
             string voiceId=GetString(request,"VoiceId","");if(!voiceId.StartsWith("v5:",StringComparison.Ordinal))throw new InvalidDataException("V5 voice IDs must use the v5:<component-id> form.");
             string compId=voiceId.Substring(3);object bank=Call(dbm,"GetVoiceBankByCompID",compId);if(bank==null)throw new InvalidDataException("Installed V5 voicebank not found: "+voiceId);
-            ulong licenses=Convert.ToUInt64(Property(bank,"NumLicenses"));if(licenses==0)throw new InvalidOperationException("Voicebank "+voiceId+" is visible to VOCALOID 5 but has no V5 synthesis license (NumLicenses=0). Importing folder metadata does not migrate a license; register it through Yamaha's official V5 process before rendering.");
+            // NumLicenses counts VDM records; it is not an activation verdict for legacy banks.
+            // Let the installed engine process the request through its normal synthesis API.
+            ulong licenseInfoCount=Convert.ToUInt64(Property(bank,"NumLicenses"));
             if(Convert.ToInt32(Property(bank,"LangID"))!=4)throw new NotSupportedException("This V5 backend currently supports Simplified-Chinese voicebanks only.");
             var automations=GetMap(request,"Automations");var partProperties=GetMap(request,"PartProperties");
             if((automations!=null&&automations.Count!=0)||(partProperties!=null&&partProperties.Count!=0))throw new NotSupportedException("V5 direct rendering currently does not support part automations or part properties.");
@@ -129,7 +131,9 @@ namespace VocaloidBridge.V5 {
                 Call(part,"NormalizeNotes");Call(part,"SetValidatedDvqm");
                 object result=Call(part,"Render",Path.GetFullPath(wav));
                 if(result==null||!String.Equals(result.ToString(),"NoError",StringComparison.Ordinal))throw new InvalidOperationException("VOCALOID 5 render failed: "+result+" ("+Property(part,"LastError")+").");
-                Audio audio=ReadWav(wav);audio.StartSeconds=-head;return audio;
+                Audio audio=ReadWav(wav);
+                if(!audio.Samples.Any(x=>Math.Abs(x)>0.000001f))throw new InvalidDataException("VOCALOID 5 returned silent PCM for "+voiceId+" (native result="+result+", catalog license records="+licenseInfoCount+"). This does not establish activation status. Compare the same voice and project in the V5 editor to diagnose the bridge initialization.");
+                audio.StartSeconds=-head;return audio;
             } finally {try{Call(sequence,"Close");}catch{} if(File.Exists(wav))File.Delete(wav);}
         }
 
@@ -155,11 +159,11 @@ namespace VocaloidBridge.V5 {
         static void CreateManagers(Assembly api,out object dbm,out object dse,out object manager){
             dbm=null;dse=null;manager=null;
             Type dbmIf=api.GetType("Yamaha.VOCALOID.VDM.DatabaseManagerIF",true),dbmError=api.GetType("Yamaha.VOCALOID.VDM.VDMError",true);
-            object[] args={"VOCALOID5",Enum.ToObject(dbmError,0)};dbm=dbmIf.GetMethod("CreateDatabaseManager",BindingFlags.Public|BindingFlags.Static).Invoke(null,args);
+            object[] args={"voc5",Enum.ToObject(dbmError,0)};dbm=dbmIf.GetMethod("CreateDatabaseManager",BindingFlags.Public|BindingFlags.Static).Invoke(null,args);
             if(dbm==null)throw new InvalidOperationException("VOCALOID 5 database manager could not be created: "+args[1]);
             Type dseIf=api.GetType("Yamaha.VOCALOID.DSE.DSEManagerIF",true);dse=dseIf.GetMethod("CreateManager",BindingFlags.Public|BindingFlags.Static).Invoke(null,new[]{dbm});
             if(dse==null)throw new InvalidOperationException("VOCALOID 5 synthesis manager could not be created.");
-            Type vsmIf=api.GetType("Yamaha.VOCALOID.VSM.WVSMModuleIF",true);manager=vsmIf.GetMethod("CreateManager",BindingFlags.Public|BindingFlags.Static).Invoke(null,new object[]{"VOCALOID5"});
+            Type vsmIf=api.GetType("Yamaha.VOCALOID.VSM.WVSMModuleIF",true);manager=vsmIf.GetMethod("CreateManager",BindingFlags.Public|BindingFlags.Static).Invoke(null,new object[]{"voc5"});
             if(manager==null)throw new InvalidOperationException("VOCALOID 5 VSM manager initialization failed: "+vsmIf.GetMethod("LastError",BindingFlags.Public|BindingFlags.Static).Invoke(null,null));
             Call(manager,"SetDatabaseManager",dbm);Call(manager,"SetDSEManager",dse);
         }

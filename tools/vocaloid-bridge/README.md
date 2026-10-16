@@ -4,19 +4,22 @@
 
 This bridge connects OpenUtau to the VOCALOID engine and voicebanks already installed on the Windows machine. The integrated default routes voice discovery and render requests through **VOCALOID 5**. Actual sound output is verified for the installed V5 banks; the installed V3/V4 banks currently enumerate but are not render-ready on this machine. The bridge does not copy, convert, or redistribute Yamaha engine or voicebank files. A separately configured VOCALOID 4 backend remains available as an optional legacy path.
 
-The OpenUtau integration and bridge source are being developed on the fork [`1w6qn/OpenUtau`, branch `codex/vocaloid-v5-bridge`](https://github.com/1w6qn/OpenUtau/tree/codex/vocaloid-v5-bridge); the fork places these files under `tools/vocaloid-bridge`. The packaged test build is `dist/OpenUtau-V5-AutoPitch`.
+The OpenUtau integration and bridge source are being developed on the fork [`1w6qn/OpenUtau`, branch `codex/vocaloid-v5-bridge`](https://github.com/1w6qn/OpenUtau/tree/codex/vocaloid-v5-bridge); the fork places these files under `tools/vocaloid-bridge`. The packaged test build is `dist/OpenUtau-V5-Compatibility`.
 
 ## Current support and verification
 
-The V5 backend has produced real, non-silent PCM for the three installed V5 banks: Luo Tianyi Ning (凝), Wan (婉), and Meng (萌). Their OpenUtau pipeline test checks nine notes across three banks, phrase placement, and fractional-semitone pitch offsets. The V5 API also enumerates the installed V3 and V4 banks after import, but this machine reports `LicenseCount=0` for those three legacy banks. The bridge marks them not ready and refuses rendering. **Importing a bank folder does not prove V5 compatibility or grant a synthesis license.** The V3/V4 phrases previously rendered through the optional V4 backend are separate tests and do not count as V5 compatibility verification.
+The V5 backend has produced real, non-silent PCM for the three installed V5 banks: Luo Tianyi Ning (凝), Wan (婉), and Meng (萌). Their OpenUtau pipeline test checks nine notes across three banks, phrase placement, and fractional-semitone pitch offsets. V3/V4 synthesis through this headless V5 host is still under investigation: the user confirms those banks play in the same V5 editor, while the host currently receives a native success result with all-zero PCM. The V3/V4 phrases previously rendered through the optional V4 backend are separate tests and do not count as V5 compatibility verification.
 
-The current six-bank catalog is expected to contain three ready V5 banks and three V3/V4 banks awaiting official V5 authorization. The readiness state shown by the bridge is authoritative for the current machine; it can differ on another installation.
+`LicenseCount` is a count of VDM records, not an activation verdict. The compatibility `Ready` flag indicates that the catalog exposed license information; a false value does not prevent synthesis. Imported banks with no such information are labeled “待渲染验证”, and rendering is attempted through the installed engine's normal API. A silent native result is an error, not a successful render or proof of missing authorization.
+
+The controlled comparisons and remaining reproduction gap are documented in
+[V5 legacy rendering diagnosis](V5-LEGACY-DIAGNOSIS.md).
 
 “Real-time preview” means the renderer synthesizes a complete phrase in a background host and then gives the PCM to OpenUtau’s player. It reuses a warm host and caches phrase renders. It does not synthesize inside the audio callback, so first renders and changed phrases can take time.
 
 ## Install and import voicebanks
 
-Use the integrated build at `dist/OpenUtau-V5-AutoPitch/OpenUtau.exe`, or build the fork from branch `codex/vocaloid-v5-bridge`. In OpenUtau, choose **File → “导入 VOCALOID 声库…”** and select the V5 engine directory and an installed voicebank directory. The importer recognizes V5 banks already visible to VDM and registered V3/V4 banks whose installed metadata and DDB/DDI files are available. It creates proxy singers, refreshes the singer list, and preserves custom names and padding on repeated import. It writes only ordinary V5 component metadata when needed; it does not transfer activation or license data. Unsupported or unregistered folders are rejected instead of being guessed from loose files.
+Use the integrated build at `dist/OpenUtau-V5-Compatibility/OpenUtau.exe`, or build the fork from branch `codex/vocaloid-v5-bridge`. In OpenUtau, choose **File → “导入 VOCALOID 声库…”** and select the V5 engine directory and an installed voicebank directory. The importer recognizes V5 banks already visible to VDM and registered V3/V4 banks whose installed metadata and DDB/DDI files are available. It creates proxy singers, refreshes the singer list, and preserves custom names and padding on repeated import. It writes only ordinary V5 component metadata when needed; it does not transfer activation or license data. Unsupported or unregistered folders are rejected instead of being guessed from loose files.
 
 If proxy singers are not present in the build’s `Singers` directory, generate them from the V5 catalog after import:
 
@@ -35,7 +38,7 @@ pwsh -NoProfile -File .\tools\vocaloid-bridge\bridge.ps1 `
   -VoiceDirectory 'D:\Program Files (x86)\VoiceDB\LuoV4_Chn'
 ```
 
-Import results include `Generation`, `ComponentId`, `DatabasePath`, `LicenseCount`, and `Ready`. A bank with `Ready=false` needs to be registered for V5 synthesis through Yamaha’s official process before it can render. The bridge will not fall back to VOCALOID 4 for that bank.
+Import results include `Generation`, `ComponentId`, `DatabasePath`, `LicenseCount`, and the informational `Ready` flag. Import does not perform a synthesis test or establish activation status. The bridge will not fall back to VOCALOID 4 for a bank that fails through V5.
 
 For the current V5 engine installation, `vocaloid5.example.json` points at `Editor/VOCALOID5.dll` and launches the 64-bit Windows PowerShell .NET Framework host. The V5 engine and the user’s installed banks must remain in their normal installation locations. The bridge itself is driven by PowerShell 7.4+; the native V5 host runs under 64-bit Windows PowerShell.
 
@@ -64,13 +67,14 @@ The OpenUtau source currently targets .NET 10. Audio acceptance scripts addition
 ```powershell
 pwsh -NoProfile -File .\tools\vocaloid-bridge\tests\v5_acceptance.ps1
 pwsh -NoProfile -File .\tools\vocaloid-bridge\tests\vocaloid_import.ps1
+pwsh -NoProfile -File .\tools\vocaloid-bridge\tests\v5_legacy_acceptance.ps1
 pwsh -NoProfile -File .\tools\vocaloid-bridge\tests\openutau_v5_pipeline.ps1 `
   -AppDirectory .\tools\vocaloid-bridge\dist\OpenUtau-V5-AutoPitch
 pwsh -NoProfile -File .\tools\vocaloid-bridge\tests\vocaloid_pitch_pipeline.ps1 `
   -Generation V5 -AppDirectory .\tools\vocaloid-bridge\dist\OpenUtau-V5-AutoPitch
 ```
 
-These tests validate consecutive native V5 renders, six-bank import and repeated import, the three-bank OpenUtau demo audio, and automatic F0 extraction and render-pitch integration. The import acceptance test expects this machine's catalog of six banks (three ready, three pending); adjust the engine and voice directories for another installation. The complete V5 audio test requires the three ready V5 banks. A doctor or voice-list response verifies initialization and enumeration only, not audible synthesis.
+These tests validate consecutive native V5 renders, six-bank import and repeated import, legacy voice rendering through V5, the three-bank OpenUtau demo audio, and automatic F0 extraction and render-pitch integration. The import acceptance test expects this machine's catalog of six banks; adjust the engine and voice directories for another installation. The legacy acceptance test requires real non-silent output for every V3/V4 bank and currently fails on this host; it never treats a rejection as compatibility success. A doctor or voice-list response verifies initialization and enumeration only, not audible synthesis.
 
 The external bridge also supports a direct request/response smoke test:
 

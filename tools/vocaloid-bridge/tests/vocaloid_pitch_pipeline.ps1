@@ -7,7 +7,7 @@ param(
 $ErrorActionPreference='Stop'
 $bridgeRoot=Split-Path -Parent $PSScriptRoot
 if (-not $AppDirectory) {
-    $AppDirectory=Join-Path $bridgeRoot $(if($Generation -eq 'V5'){'dist/OpenUtau-V5-AutoPitch'}else{'dist/OpenUtau-Vocaloid-AutoPitch'})
+    $AppDirectory=Join-Path $bridgeRoot $(if($Generation -eq 'V5'){'dist/OpenUtau-V5-Compatibility'}else{'dist/OpenUtau-Vocaloid-AutoPitch'})
 }
 $app=[IO.Path]::GetFullPath($AppDirectory)
 $outputRoot=Join-Path $bridgeRoot 'test-output'

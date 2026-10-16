@@ -1,5 +1,5 @@
 param(
-    [string]$AppDirectory=(Join-Path $PSScriptRoot '../dist/OpenUtau-V5-AutoPitch'),
+    [string]$AppDirectory=(Join-Path $PSScriptRoot '../dist/OpenUtau-V5-Compatibility'),
     [string]$SingerPath='',
     [string]$DataDirectory='',
     [string]$OutputPath=(Join-Path $PSScriptRoot '../test-output/openutau-v5-demo.wav')

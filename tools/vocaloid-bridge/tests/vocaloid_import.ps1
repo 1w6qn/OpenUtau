@@ -1,5 +1,5 @@
 param(
-    [string]$AppDirectory = (Join-Path $PSScriptRoot '../dist/OpenUtau-V5-AutoPitch'),
+    [string]$AppDirectory = (Join-Path $PSScriptRoot '../dist/OpenUtau-V5-Compatibility'),
     [string]$EngineDirectory = 'D:/Program Files/POCALOID5ESV',
     [string]$VoiceDirectory = 'D:/Program Files (x86)/VoiceDB',
     [string]$DataDirectory = '',
@@ -99,7 +99,6 @@ $imported = @($result.Voices)
 if ($imported.Count -ne 6) { throw "Expected 6 imported voicebanks; got $($imported.Count)." }
 $ready = @($imported | Where-Object Ready).Count
 $pending = @($imported | Where-Object { -not $_.Ready }).Count
-if ($ready -ne 3 -or $pending -ne 3) { throw "Expected 3 ready and 3 authorization-pending voices; got $ready/$pending." }
 $generations = @($imported | ForEach-Object Generation | Sort-Object -Unique)
 if (($generations -join ',') -ne '3,4,5') { throw "Unexpected voicebank generations: $($generations -join ',')." }
 
@@ -112,6 +111,15 @@ $customConfig.HeadMs = 321
 $customConfig | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $customConfigPath -Encoding utf8
 $characterPath = Join-Path $directoriesBefore[0].FullName 'character.txt'
 Set-Content -LiteralPath $characterPath -Value @('name=User Custom Singer Name','author=user') -Encoding utf8
+$upgradeCharacter = ''
+foreach ($candidate in $directoriesBefore | Where-Object FullName -NE $directoriesBefore[0].FullName) {
+    $candidateMetadata = Get-Content -LiteralPath (Join-Path $candidate.FullName 'vocaloid-voice.json') -Raw | ConvertFrom-Json
+    if (-not $candidateMetadata.Ready) {
+        $upgradeCharacter = Join-Path $candidate.FullName 'character.txt'
+        Set-Content -LiteralPath $upgradeCharacter -Value ('name=' + $candidateMetadata.Name + ' [待 V5 授权]') -Encoding utf8
+        break
+    }
+}
 $repeatTask = $importMethod.Invoke($null, $importArgs)
 $repeatResult = $repeatTask.GetAwaiter().GetResult()
 $directoriesAfter = @(Get-ChildItem -LiteralPath $singerRoot -Directory | Where-Object Name -Like 'vocaloid-*')
@@ -121,46 +129,20 @@ if ([double]$preservedConfig.HeadMs -ne 321) { throw "Repeat import did not pres
 if (-not ((Get-Content -LiteralPath $characterPath -Raw) -match 'name=User Custom Singer Name')) {
     throw "Repeat import did not preserve the user's custom singer name."
 }
+if ($upgradeCharacter -and (Get-Content -LiteralPath $upgradeCharacter -Raw) -notmatch '\[待渲染验证\]') {
+    throw 'Repeat import did not replace the obsolete automatic authorization label.'
+}
 
-$bridgeVoiceType = $core.GetType('VocaloidBridge.BridgeVoice', $true)
-$bridgeNoteType = $core.GetType('VocaloidBridge.BridgeNote', $true)
-$bridgeCurveType = $core.GetType('VocaloidBridge.BridgeCurve', $true)
-$bridgeRequestType = $core.GetType('VocaloidBridge.BridgeRequest', $true)
-$bridgeSessionType = $core.GetType('VocaloidBridge.BridgeSession', $true)
-$pendingRejections = @()
-foreach ($voice in $imported | Where-Object { -not $_.Ready }) {
+# Import success is independent of catalog license counts. Actual synthesis is
+# checked by v5_legacy_acceptance.ps1 and must not be replaced by a rejection test.
+foreach ($voice in $imported) {
     $idHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes([string]$voice.Id))).Substring(0,16).ToLowerInvariant()
     $voiceDirectoryPath = Join-Path $singerRoot ('vocaloid-' + $idHash)
     $metadataPath = Join-Path $voiceDirectoryPath 'vocaloid-voice.json'
-    if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) { throw "Could not locate generated singer directory for pending voice $($voice.Id)." }
+    if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) { throw "Could not locate generated singer directory for voice $($voice.Id)." }
     $metadataVoice = Get-Content -LiteralPath $metadataPath -Raw | ConvertFrom-Json
-    if ($metadataVoice.Id -cne $voice.Id -or $metadataVoice.Ready) { throw "Generated voice metadata does not match pending voice $($voice.Id)." }
-    $configPath = Join-Path $voiceDirectoryPath 'vocaloid-bridge.json'
-    $request = [Activator]::CreateInstance($bridgeRequestType)
-    $request.VoiceId = [string]$voice.Id
-    $note = [Activator]::CreateInstance($bridgeNoteType)
-    $note.StartSeconds = 0.0; $note.EndSeconds = 0.2; $note.Tone = 60; $note.Lyric = 'a'
-    $notes = [Array]::CreateInstance($bridgeNoteType, 1); $notes.SetValue($note, 0)
-    $request.Notes = $notes
-    $pitch = [Activator]::CreateInstance($bridgeCurveType)
-    $pitch.TimesSeconds = [double[]]@(0.0); $pitch.Values = [double[]]@(60.0)
-    $request.Pitch = $pitch
-    $session = $null
-    try {
-        $session = $bridgeSessionType.GetMethod('Get', $allFlags).Invoke($null, [object[]]@([string]$configPath))
-        $renderMethod = $bridgeSessionType.GetMethod('RenderAsync', $allFlags)
-        $renderTask = $renderMethod.Invoke($session, [object[]]@($request, [Threading.CancellationToken]::None))
-        $renderTask.GetAwaiter().GetResult() | Out-Null
-        throw "Unauthorized voice $($voice.Id) returned rendered audio instead of refusing synthesis."
-    } catch [InvalidOperationException] {
-        $errorText = $_.Exception.Message
-        if ($errorText -notmatch 'no V5 synthesis license' -or $errorText -notmatch 'NumLicenses=0') { throw }
-        $pendingRejections += [ordered]@{ id=$voice.Id; error=$errorText }
-    } finally {
-        if ($session) { $session.Dispose() }
-    }
+    if ($metadataVoice.Id -cne $voice.Id -or $metadataVoice.Ready -ne $voice.Ready) { throw "Generated voice metadata does not match voice $($voice.Id)." }
 }
-if ($pendingRejections.Count -ne $pending) { throw "Expected $pending unauthorized render rejections, got $($pendingRejections.Count)." }
 
 # Exercise OpenUtau's actual singer discovery against the isolated generated data path.
 $doc = Get-Singleton 'OpenUtau.Core.DocManager'
@@ -184,14 +166,15 @@ $report = [ordered]@{
     data_directory = $data
     singer_directory = $singerRoot
     imported_count = $imported.Count
-    ready_count = $ready
-    authorization_pending_count = $pending
+    catalog_license_info_count = $ready
+    catalog_unverified_count = $pending
     generations = $generations
     singer_manager_discovered = $discovered.Count
     repeat_import_directory_count = $directoriesAfter.Count
     preserved_head_ms = [double]$preservedConfig.HeadMs
     preserved_custom_name = $true
-    pending_render_rejections = $pendingRejections
+    upgraded_obsolete_status_label = [bool]$upgradeCharacter
+    synthesis_verified = $false
     invalid_path_error = $invalidPathError
     voices = @($imported | ForEach-Object { [ordered]@{ id=$_.Id; name=$_.Name; generation=$_.Generation; ready=$_.Ready } })
     tested_utc = [DateTime]::UtcNow.ToString('o')

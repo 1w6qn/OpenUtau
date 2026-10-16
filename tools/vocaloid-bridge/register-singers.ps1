@@ -30,7 +30,7 @@ try {
         $bridgeConfig.HostScript = [IO.Path]::GetRelativePath($bridgePlan.path, $bridgeHostScript)
         $bridgeConfig.LyricLanguage = if ($bridgePlan.voice.Language) { $bridgePlan.voice.Language } else { $bridgeConfiguredLanguage }
         $bridgeName = $bridgePlan.voice.Name.Replace("`r",' ').Replace("`n",' ')
-        if (-not $bridgePlan.voice.Ready) { $bridgeName += ' [待 V5 授权]' }
+        if (-not $bridgePlan.voice.Ready) { $bridgeName += ' [待渲染验证]' }
         $bridgeQuotedName = [Text.Json.JsonSerializer]::Serialize([object][string]$bridgeName, [string], [Text.Json.JsonSerializerOptions]::new())
         # JSON quoted strings are valid YAML scalars, including names with ':' or '#'.
         $bridgeYaml = "name: $bridgeQuotedName`nsinger_type: vocaloid`ntext_file_encoding: utf-8`ndefault_phonemizer: OpenUtau.Core.DefaultPhonemizer`n"

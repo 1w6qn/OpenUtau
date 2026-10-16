@@ -45,7 +45,7 @@ namespace OpenUtau.App.Controls {
             closeButton.Click += (_, _) => Close();
 
             var explanation = new TextBlock {
-                Text = "选择已安装的中文 V3/V4/V5 声库目录，可选择包含多个声库的根目录。导入只登记目录并创建 OpenUtau 歌手，不复制声库数据。尚未在 V5 中完成授权的声库会显示为待授权。",
+                Text = "选择已安装的中文 V3/V4/V5 声库目录，可选择包含多个声库的根目录。导入只登记目录并创建 OpenUtau 歌手，不复制声库数据。状态“待渲染验证”不代表未授权；“引擎已加载授权信息”也不代表已验证出声。",
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = Brushes.Gray,
             };
@@ -142,19 +142,17 @@ namespace OpenUtau.App.Controls {
 
         void ShowResult(VocaloidVoicebankImportResult result) {
             var voices = new List<string>();
-            int readyCount = 0;
+            int catalogReadyCount = 0;
             foreach (var value in result.Voices) {
                 string name = value.Name;
-                int licenses = value.LicenseCount;
                 int generation = value.Generation;
-                bool usable = value.Ready && licenses > 0;
-                if (usable) readyCount++;
-                string statusText = usable ? "已授权，可用" : "待 V5 授权或引擎配置";
+                if (value.Ready) catalogReadyCount++;
+                string statusText = value.Ready ? "引擎已加载授权信息" : "待渲染验证";
                 string generationText = generation > 0 ? $"VOCALOID {generation}" : "代际未识别";
                 voices.Add($"• {name} — {generationText} — {statusText}");
             }
             string location = result.SingerDirectory;
-            status.Text = $"导入完成：共识别 {voices.Count} 个声库，其中 {readyCount} 个已就绪。";
+            status.Text = $"导入完成：共识别 {voices.Count} 个声库，其中 {catalogReadyCount} 个引擎已加载授权信息。";
             summary.Text = "注册目录：" + location + (voices.Count > 0 ? Environment.NewLine + string.Join(Environment.NewLine, voices) : Environment.NewLine + "没有识别到可导入的声库。请检查目录选择和引擎安装状态。");
         }
 
