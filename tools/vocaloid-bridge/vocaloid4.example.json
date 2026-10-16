@@ -1,0 +1,13 @@
+{
+  "HostExecutable": "C:/Windows/SysWOW64/WindowsPowerShell/v1.0/powershell.exe",
+  "HostScript": "V4/run-native-host.ps1",
+  "EngineAssembly": "D:/Program Files (x86)/Vocaloid4P/DSE4.dll",
+  "EngineType": "VOCALOID4",
+  "EngineDirectory": "D:/Program Files (x86)/Vocaloid4P",
+  "VoiceId": "4:1",
+  "Revision": "1",
+  "TimeoutSeconds": 120,
+  "HeadMs": 500,
+  "TailMs": 1000,
+  "CacheBytes": 67108864
+}

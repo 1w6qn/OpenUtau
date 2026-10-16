@@ -1,0 +1,14 @@
+{
+  "VoiceId": "",
+  "Notes": [
+    { "StartSeconds": 0.1234, "EndSeconds": 0.5234, "Tone": 48, "Lyric": "a" },
+    { "StartSeconds": 1.1234, "EndSeconds": 1.5234, "Tone": 84, "Lyric": "a" }
+  ],
+  "Pitch": {
+    "TimesSeconds": [0.0, 0.1234, 0.5233, 0.5234, 1.1233, 1.1234, 1.5234],
+    "Values": [48.5, 48.5, 48.5, 84.5, 84.5, 84.5, 84.5]
+  },
+  "Automations": {},
+  "PartProperties": {},
+  "NoteProperties": [{}, {}]
+}

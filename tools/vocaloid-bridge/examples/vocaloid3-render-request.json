@@ -1,0 +1,12 @@
+{
+  "VoiceId": "4:0",
+  "Notes": [
+    { "StartSeconds": 0.0, "EndSeconds": 0.6, "Tone": 60, "Lyric": "ni" },
+    { "StartSeconds": 0.6, "EndSeconds": 1.2, "Tone": 62, "Lyric": "hao" },
+    { "StartSeconds": 1.2, "EndSeconds": 2.0, "Tone": 64, "Lyric": "a" }
+  ],
+  "Pitch": {
+    "TimesSeconds": [0, 0.59, 0.6, 1.19, 1.2, 2.0],
+    "Values": [60, 60, 62, 62, 64, 64]
+  }
+}

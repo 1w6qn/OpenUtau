@@ -13,6 +13,8 @@ namespace OpenUtau.Classic {
                     return new Core.DiffSinger.DiffSingerSinger(v) as USinger;
                 case USingerType.Voicevox:
                     return new Core.Voicevox.VoicevoxSinger(v) as USinger;
+                case USingerType.Vocaloid:
+                    return new Core.Vocaloid.VocaloidSinger(v);
                 default:
                     return new ClassicSinger(v) as USinger;
             }

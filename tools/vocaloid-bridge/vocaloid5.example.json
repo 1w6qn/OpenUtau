@@ -1,0 +1,14 @@
+{
+  "HostExecutable": "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+  "HostScript": "V5/run-native-host.ps1",
+  "EngineAssembly": "D:/Program Files/POCALOID5ESV/Editor/VOCALOID5.dll",
+  "EngineType": "VOCALOID5",
+  "EngineDirectory": "D:/Program Files/POCALOID5ESV",
+  "VoiceId": "v5:BD79E492NWWK3DDF",
+  "LyricLanguage": "zh-CN",
+  "Revision": "1",
+  "TimeoutSeconds": 120,
+  "HeadMs": 500,
+  "TailMs": 1000,
+  "CacheBytes": 67108864
+}

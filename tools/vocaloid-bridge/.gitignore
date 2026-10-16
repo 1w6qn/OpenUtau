@@ -1,0 +1,8 @@
+test-output/
+/dist/
+/vocaloid-bridge.local.json
+/vocaloid4.local.json
+/*.local.json
+__pycache__/
+*.py[cod]
+*-autosave.ustx

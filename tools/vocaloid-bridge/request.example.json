@@ -1,0 +1,12 @@
+{
+  "VoiceId": "",
+  "Notes": [
+    {"StartSeconds": 0.0, "EndSeconds": 0.5, "Tone": 60, "Lyric": "あ"},
+    {"StartSeconds": 0.5, "EndSeconds": 1.0, "Tone": 62, "Lyric": "い"},
+    {"StartSeconds": 1.0, "EndSeconds": 2.0, "Tone": 64, "Lyric": "う"}
+  ],
+  "Pitch": {
+    "TimesSeconds": [0.0, 0.48, 0.5, 0.98, 1.0, 2.0],
+    "Values": [60.0, 60.0, 62.0, 62.0, 64.0, 64.0]
+  }
+}

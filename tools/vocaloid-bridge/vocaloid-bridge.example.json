@@ -1,0 +1,13 @@
+{
+  "HostExecutable": "pwsh",
+  "HostScript": "run-host.ps1",
+  "EngineAssembly": "C:/YourInstalledBridge/VocaloidBridge.dll",
+  "EngineType": "",
+  "EngineDirectory": "C:/YourInstalledBridge",
+  "VoiceId": "replace-with-exact-id-from-doctor",
+  "Revision": "1",
+  "TimeoutSeconds": 60,
+  "HeadMs": 500,
+  "TailMs": 1000,
+  "CacheBytes": 67108864
+}

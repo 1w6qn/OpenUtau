@@ -478,6 +478,10 @@ namespace OpenUtau.App.Views {
             ValidateTracksVoiceColor();
         }
 
+        async void OnMenuImportVocaloid(object sender, RoutedEventArgs args) {
+            await VocaloidImportDialog.ShowForImportAsync(this);
+        }
+
         async void OnMenuImportAudio(object sender, RoutedEventArgs args) {
             var files = await FilePicker.OpenFilesAboutProject(
                 this, "menu.file.importaudio", FilePicker.AudioFiles);

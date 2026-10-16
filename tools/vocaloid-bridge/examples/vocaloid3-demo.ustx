@@ -1,0 +1,45 @@
+name: VOCALOID3 · 洛天依中文示例
+comment: 使用已注册的 VOCALOID3 Tianyi_CHN（V4 backend catalog id 4:0）；兼容层配置通过声库代理目录解析。
+ustx_version: '0.10'
+tempos:
+- position: 0
+  bpm: 120
+- position: 2880
+  bpm: 90
+time_signatures:
+- bar_position: 0
+  beat_per_bar: 4
+  beat_unit: 4
+tracks:
+- singer: vocaloid-592506cf9dae29d0
+  phonemizer: OpenUtau.Core.DefaultPhonemizer
+  renderer_settings:
+    renderer: VOCALOID-BRIDGE
+  track_name: 洛天依 V3 中文
+  volume: 0
+  pan: 0
+voice_parts:
+- name: 洛天依 · 你好啊
+  track_no: 0
+  position: 960
+  duration: 1920
+  notes:
+  - position: 0
+    duration: 576
+    tone: 60
+    lyric: 你
+    pitch: { data: [{x: -30, y: 0, shape: io}, {x: 30, y: 0, shape: io}], snap_first: false }
+    vibrato: { length: 0 }
+  - position: 576
+    duration: 576
+    tone: 62
+    lyric: 好
+    pitch: { data: [{x: -30, y: 0, shape: io}, {x: 30, y: 0, shape: io}], snap_first: false }
+    vibrato: { length: 0 }
+  - position: 1152
+    duration: 768
+    tone: 64
+    lyric: 啊
+    pitch: { data: [{x: -30, y: 0, shape: io}, {x: 30, y: 0, shape: io}], snap_first: false }
+    vibrato: { length: 0 }
+wave_parts: []

@@ -1,0 +1,100 @@
+name: VOCALOID5 · 洛天依凝、婉、萌
+comment: 三个本机 V5 声库；中文单字；婉升高 50 cents、萌降低 50 cents 验证 OpenUtau 音高曲线。
+ustx_version: '0.10'
+tempos:
+- position: 0
+  bpm: 120
+time_signatures:
+- bar_position: 0
+  beat_per_bar: 4
+  beat_unit: 4
+tracks:
+- singer: vocaloid-87a9101ae1158b84
+  phonemizer: OpenUtau.Core.DefaultPhonemizer
+  renderer_settings: { renderer: VOCALOID-BRIDGE }
+  track_name: 洛天依 V5 凝
+  volume: 0
+  pan: 0
+- singer: vocaloid-1ff1d78aa4a2f769
+  phonemizer: OpenUtau.Core.DefaultPhonemizer
+  renderer_settings: { renderer: VOCALOID-BRIDGE }
+  track_name: 洛天依 V5 婉 · +50 cents
+  volume: 0
+  pan: 0
+- singer: vocaloid-83afe545637566ab
+  phonemizer: OpenUtau.Core.DefaultPhonemizer
+  renderer_settings: { renderer: VOCALOID-BRIDGE }
+  track_name: 洛天依 V5 萌 · -50 cents
+  volume: 0
+  pan: 0
+voice_parts:
+- name: 凝 · 你好啊
+  track_no: 0
+  position: 960
+  duration: 1920
+  notes:
+  - position: 0
+    duration: 576
+    tone: 60
+    lyric: 你
+    pitch: { data: [{x: -30, y: 0, shape: io}, {x: 30, y: 0, shape: io}], snap_first: false }
+    vibrato: { length: 0 }
+  - position: 576
+    duration: 576
+    tone: 62
+    lyric: 好
+    pitch: { data: [{x: -30, y: 0, shape: io}, {x: 30, y: 0, shape: io}], snap_first: false }
+    vibrato: { length: 0 }
+  - position: 1152
+    duration: 768
+    tone: 64
+    lyric: 啊
+    pitch: { data: [{x: -30, y: 0, shape: io}, {x: 30, y: 0, shape: io}], snap_first: false }
+    vibrato: { length: 0 }
+- name: 婉 · 你好啊 · +50 cents
+  track_no: 1
+  position: 3840
+  duration: 1920
+  notes:
+  - position: 0
+    duration: 576
+    tone: 60
+    lyric: 你
+    pitch: { data: [{x: -30, y: 5, shape: io}, {x: 30, y: 5, shape: io}], snap_first: false }
+    vibrato: { length: 0 }
+  - position: 576
+    duration: 576
+    tone: 62
+    lyric: 好
+    pitch: { data: [{x: -30, y: 5, shape: io}, {x: 30, y: 5, shape: io}], snap_first: false }
+    vibrato: { length: 0 }
+  - position: 1152
+    duration: 768
+    tone: 64
+    lyric: 啊
+    pitch: { data: [{x: -30, y: 5, shape: io}, {x: 30, y: 5, shape: io}], snap_first: false }
+    vibrato: { length: 0 }
+- name: 萌 · 你好啊 · -50 cents
+  track_no: 2
+  position: 6720
+  duration: 1920
+  notes:
+  - position: 0
+    duration: 576
+    tone: 60
+    lyric: 你
+    pitch: { data: [{x: -30, y: -5, shape: io}, {x: 30, y: -5, shape: io}], snap_first: false }
+    vibrato: { length: 0 }
+  - position: 576
+    duration: 576
+    tone: 62
+    lyric: 好
+    pitch: { data: [{x: -30, y: -5, shape: io}, {x: 30, y: -5, shape: io}], snap_first: false }
+    vibrato: { length: 0 }
+  - position: 1152
+    duration: 768
+    tone: 64
+    lyric: 啊
+    pitch: { data: [{x: -30, y: -5, shape: io}, {x: 30, y: -5, shape: io}], snap_first: false }
+    vibrato: { length: 0 }
+wave_parts: []

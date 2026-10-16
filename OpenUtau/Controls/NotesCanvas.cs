@@ -833,6 +833,9 @@ namespace OpenUtau.App.Controls {
                     if (phrase.position - Part.position > rightTick || phrase.end - Part.position < leftTick) {
                         continue;
                     }
+                    if (VocaloidPitchDrawing.Draw(context, viewModel, phrase, Part.position, pen, leftTick, rightTick)) {
+                        continue;
+                    }
                     int pitchStart = phrase.position - phrase.leading - Part.position;
                     int startIdx = (int)Math.Max(0, (leftTick - pitchStart) / 5);
                     int endIdx = (int)Math.Min(phrase.pitches.Length, (rightTick - pitchStart) / 5 + 1);
