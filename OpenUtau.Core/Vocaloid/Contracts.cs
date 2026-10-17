@@ -116,6 +116,9 @@ namespace VocaloidBridge {
     public sealed class BridgeConfig {
         public string HostExecutable { get; set; } = "pwsh";
         public string HostScript { get; set; } = "run-host.ps1";
+        // Optional frame server (tools/vocaloid-bridge/V4/run-stream-server.ps1).
+        // Empty disables the VOCALOID-STREAM renderer for this singer.
+        public string StreamHostScript { get; set; } = "";
         public string EngineAssembly { get; set; } = "";
         public string EngineType { get; set; } = "";
         public string EngineDirectory { get; set; } = "";
@@ -134,6 +137,8 @@ namespace VocaloidBridge {
                 ?? throw new InvalidDataException("Empty bridge configuration.");
             string root = Path.GetDirectoryName(path)!;
             c.HostScript = Path.GetFullPath(c.HostScript, root);
+            if (!string.IsNullOrWhiteSpace(c.StreamHostScript))
+                c.StreamHostScript = Path.GetFullPath(c.StreamHostScript, root);
             if (string.IsNullOrWhiteSpace(c.EngineAssembly))
                 throw new InvalidDataException("EngineAssembly must point to the configured local engine or bridge DLL.");
             c.EngineAssembly = Path.GetFullPath(c.EngineAssembly, root);

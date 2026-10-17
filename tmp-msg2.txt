@@ -1,0 +1,16 @@
+feat(vocaloid-bridge): add VOCALOID-STREAM phrase renderer
+
+Phrases are now rendered through the persistent frame server instead of a
+one-shot host call: build the bridge request, open VocaloidFrameSource, pull
+32-frame windows until the phrase is filled, then reuse the offline renderer's
+layout math (V4 score origin, head/tail padding, DYN).
+
+- registered as VOCALOID-STREAM for VOCALOID 4 singers and selectable per track;
+  the default renderer stays VOCALOID-BRIDGE
+- enabled by adding StreamHostScript to vocaloid-bridge.json (empty = disabled)
+- rejects VOCALOID5 singers with a clear message (the frame server drives DSE4)
+- BuildConfig gains StreamHostScript, resolved relative to the config file
+
+Core builds with 0 errors. Sample identity between this path and the batch
+render is established by tests/stream_server_probe.py against the same engine
+request.
