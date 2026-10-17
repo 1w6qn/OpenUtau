@@ -141,3 +141,13 @@ Measured on the development machine (8 notes, 11.755 s, 2025 frames):
 Details and the measurement ladder: `docs/实时渲染可行性与接入.md`,
 `docs/WAV一致的条件.md`, `docs/VSQX到OpenUtau内容等价.md`.
 
+
+### Acceptance run
+
+`tests/stream_acceptance.py` is self-contained (uses `request.vocaloid4.json` and
+`vocaloid4.example.json`): it renders a reference phrase with the one-shot host, then
+drives the persistent server through sequential windows, a mid-phrase seek and
+paced reads. Latest run on the development machine: **3/3 passed** (sequential
+identity, seek identity, paced ratio 1.009). It needs an installed VOCALOID 4
+engine and writes only under `tmp/`.
+
