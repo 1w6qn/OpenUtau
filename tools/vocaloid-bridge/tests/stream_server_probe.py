@@ -4,6 +4,16 @@ The server speaks one JSON line per command; a read reply is a JSON line followe
 by exactly samples*2 bytes of int16 PCM. This probe proves three properties:
 sequential windows concatenate to the batch render, seek is sample exact, and
 paced reads keep up with the wall clock.
+
+Prerequisites (one phrase of the installed VOCALOID 4 bank):
+
+    python testssqx_render_request.py --source song.vsqx --out tmpwaveq-pbs.json --notes 8
+    pwsh -File V4un-stream-host.ps1 -Config vocaloid4.example.json \
+        -Request tmpwaveq-pbs.json -Output tmpwavull-float.wav -Seconds 12
+    python testsstream_server_probe.py
+
+The probe compares the server window output with tmpwavull-float.wav, so both
+files must come from the same request and engine.
 """
 from __future__ import annotations
 
