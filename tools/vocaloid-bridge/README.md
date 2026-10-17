@@ -107,3 +107,37 @@ pwsh -NoProfile -File .\tools\vocaloid-bridge\tests\legacy_contract_probe.ps1
 ```
 
 Real native render tests require the matching local engine, installed voicebanks, and their legitimate vendor registration. The bridge does not bypass licensing or manufacture V5 authorization. Performance results are machine-specific, and phrase rendering remains background work rather than audio-callback streaming.
+
+## Real-time frame streaming (VOCALOID 4 engine)
+
+The engine renders one 256-sample frame per call, so the same audio can be played
+in real time instead of waiting for a whole phrase. Two hosts are provided:
+
+| Host | Purpose |
+| --- | --- |
+| `V4/stream/StreamHost.cs` (`V4/run-stream-host.ps1`) | one-shot window: `-StartSeconds f<frame>` / `-Seconds f<frames>`, optional `-Pace` |
+| `V4/stream/StreamServer.cs` (`V4/run-stream-server.ps1`) | persistent server: JSON line per command, PCM reply |
+
+Server protocol (one JSON line in, one JSON line plus exactly `samples * 2` bytes
+of int16 PCM out for `read`):
+
+```text
+{"op":"seek","frame":N}                  -> {frame, preroll_ms}
+{"op":"read","frames":M,"pace":true}     -> {start_frame, frames, samples, ...} + PCM
+{"op":"ping"} / {"op":"close"}           -> {pong} / {closed}
+```
+
+`OpenUtau.Core/Vocaloid/VocaloidFrameSource.cs` is the OpenUtau-side client
+(`Seek`, `Read`, `Dispose`); wiring it into the playback pipeline is the
+remaining step.
+
+Measured on the development machine (8 notes, 11.755 s, 2025 frames):
+
+- frame cost p50 0.03 ms / p99 0.51 ms against a 5.805 ms budget (about 60x headroom);
+- 5 sequential 172-frame windows concatenate to the batch render **sample for sample**;
+- `seek 516` + read reproduces the batch slice **sample for sample**;
+- paced reads track the wall clock (5.000 s wall for 4.992 s audio).
+
+Details and the measurement ladder: `docs/实时渲染可行性与接入.md`,
+`docs/WAV一致的条件.md`, `docs/VSQX到OpenUtau内容等价.md`.
+

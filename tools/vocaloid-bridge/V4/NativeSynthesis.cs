@@ -1,10 +1,39 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace VocaloidBridge.V4
 {
+    /// <summary>Per-frame cost of the incremental engine, for real-time budgeting.</summary>
+    public sealed class RenderStats
+    {
+        readonly List<double> samples = new List<double>();
+        public int Frames { get; private set; }
+        public double TotalMs { get; private set; }
+        public double MaxMs { get; private set; }
+        public int LateFrames { get; set; }
+        public double BudgetMs;
+        public void Accumulate(double milliseconds)
+        {
+            Frames++;
+            TotalMs += milliseconds;
+            if (milliseconds > MaxMs) MaxMs = milliseconds;
+            if (samples.Count < 200000) samples.Add(milliseconds);
+        }
+        public double Percentile(double fraction)
+        {
+            if (samples.Count == 0) return 0.0;
+            List<double> copy = new List<double>(samples);
+            copy.Sort();
+            int index = (int)Math.Round((copy.Count - 1) * fraction);
+            return copy[index];
+        }
+        public double RealtimeFactor { get { return TotalMs / Math.Max(1e-9, BudgetMs * Frames); } }
+    }
+
     public sealed class NativeAudio
     {
         public double StartSeconds { get; private set; }
@@ -66,7 +95,8 @@ namespace VocaloidBridge.V4
             return Render(api, handle, daisyBuffer, null);
         }
 
-        public static NativeAudio Render(NativeApi api, uint handle, IntPtr daisyBuffer, Func<bool> continueRendering)
+        public static NativeAudio Render(NativeApi api, uint handle, IntPtr daisyBuffer, Func<bool> continueRendering,
+            RenderStats stats = null, bool paceRealtime = false, int startFrame = 0, int windowFrames = Int32.MaxValue)
         {
             if (IntPtr.Size != 4)
                 throw new InvalidOperationException("Vocaloid4/DSCL4 rendering requires a 32-bit process.");
@@ -132,13 +162,21 @@ namespace VocaloidBridge.V4
                 uint currentEventMs = firstMs;
                 long entryCount = 1;
                 bool haveEntry = true;
+                Stopwatch paceWatch = Stopwatch.StartNew();
                 int nativeResult = api.Start(handle);
                 if (nativeResult != 0)
                     throw new InvalidOperationException("DSEStart failed with code " + nativeResult + ".");
                 started = true;
 
-                for (long frameStartSample = frameStart; frameStartSample <= frameLimit; frameStartSample += FrameSize)
+                long frameIndex = 0;
+                long firstCollectedFrame = startFrame < 0 ? 0 : startFrame;
+                long lastCollectedFrame = windowFrames == Int32.MaxValue ? Int64.MaxValue : firstCollectedFrame + windowFrames;
+                for (long frameStartSample = frameStart; frameStartSample <= frameLimit; frameStartSample += FrameSize, frameIndex++)
                 {
+                    // Frames before the window are rendered for engine state only;
+                    // only the requested window is collected, paced and measured.
+                    bool collecting = frameIndex >= firstCollectedFrame && frameIndex < lastCollectedFrame;
+                    if (!collecting && frameIndex >= lastCollectedFrame) break;
                     if (continueRendering != null && !continueRendering())
                         throw new OperationCanceledException("V4 PCM rendering was cancelled.");
 
@@ -203,7 +241,23 @@ namespace VocaloidBridge.V4
                     FillBytes(pcmSamples, 0, FrameSize * 2, 0);
                     FillBytes(pcmSamples, FrameSize * 2, PcmOverflowSlackBytes, PcmOverflowValue);
                     FillBytes(pcmSamples, FrameSize * 2 + PcmOverflowSlackBytes, PcmGuardBytes, PcmGuardValue);
+                    Stopwatch frameWatch = Stopwatch.StartNew();
                     int stepResult = api.DoStepSynthesis(handle, frameEvents.Count, eventPointer, ref pcm);
+                    frameWatch.Stop();
+                    if (stats != null && collecting)
+                    {
+                        stats.Accumulate(frameWatch.Elapsed.TotalMilliseconds);
+                        // Pace against wall clock only when the caller asked for a
+                        // real-time stream: sleeping keeps the engine's own frame
+                        // cadence instead of rendering as fast as possible.
+                        if (paceRealtime)
+                        {
+                            double target = stats.Frames * stats.BudgetMs;
+                            double behind = target - paceWatch.Elapsed.TotalMilliseconds;
+                            if (behind > 0.5) Thread.Sleep((int)behind);
+                            else if (behind < -stats.BudgetMs) stats.LateFrames++;
+                        }
+                    }
                     if (stepResult != 0)
                         throw new InvalidOperationException("DSEDoStepSynthesis failed with code " + stepResult + ".");
                     int overwritten = FindUnexpectedByte(pcmSamples, FrameSize * 2, PcmOverflowSlackBytes, PcmOverflowValue);
@@ -216,6 +270,8 @@ namespace VocaloidBridge.V4
                         throw new InvalidDataException("DSE returned an invalid PCM sample count.");
                     if (pcm.SampleCount == 0)
                         break;
+                    if (!collecting)
+                        continue;
                     if ((long)output.Count + pcm.SampleCount > MaxOutputSamples)
                         throw new InvalidDataException("DSE PCM output exceeds the configured sample limit.");
                     for (int i = 0; i < pcm.SampleCount; i++)
@@ -225,7 +281,8 @@ namespace VocaloidBridge.V4
                     }
                 }
 
-                return new NativeAudio((double)frameStart / SampleRate, SampleRate, output.ToArray());
+                double collectedStart = ((double)frameStart + firstCollectedFrame * FrameSize) / SampleRate;
+                return new NativeAudio(collectedStart, SampleRate, output.ToArray());
             }
             finally
             {

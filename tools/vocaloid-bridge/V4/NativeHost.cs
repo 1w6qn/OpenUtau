@@ -7,56 +7,6 @@ using System.Text;
 using System.Web.Script.Serialization;
 
 namespace VocaloidBridge.V4 {
-    public sealed class V4Note {
-        public double StartSeconds { get; set; }
-        public double EndSeconds { get; set; }
-        public int Tone { get; set; }
-        public string Lyric { get; set; }
-    }
-    public sealed class V4Curve {
-        public double[] TimesSeconds { get; set; }
-        public double[] Values { get; set; }
-        public double Sample(double time) {
-            int i=Array.BinarySearch(TimesSeconds,time);
-            if(i>=0)return Values[i];i=~i;
-            if(i==0)return Values[0];if(i==Values.Length)return Values[i-1];
-            double t=(time-TimesSeconds[i-1])/(TimesSeconds[i]-TimesSeconds[i-1]);
-            return Values[i-1]+t*(Values[i]-Values[i-1]);
-        }
-    }
-    public sealed class V4Request {
-        public string VoiceId { get; set; }
-        public V4Note[] Notes { get; set; }
-        public V4Curve Pitch { get; set; }
-        public Dictionary<string,object> Automations { get; set; }
-        public Dictionary<string,object> PartProperties { get; set; }
-        public Dictionary<string,object>[] NoteProperties { get; set; }
-        public void Validate() {
-            if(Notes==null||Notes.Length<1||Notes.Length>10000)throw new InvalidDataException("A V4 phrase requires 1..10000 notes.");
-            for(int i=0;i<Notes.Length;i++) {
-                var n=Notes[i];
-                if(n==null||!Finite(n.StartSeconds)||!Finite(n.EndSeconds)||n.StartSeconds<0||n.EndSeconds>300||n.EndSeconds<=n.StartSeconds||n.Tone<0||n.Tone>127||String.IsNullOrWhiteSpace(n.Lyric)||n.Lyric.Length>32||(i>0&&n.StartSeconds<Notes[i-1].EndSeconds-0.000001))
-                    throw new InvalidDataException("V4 notes must be ordered, monophonic, start at or after zero, and fit within 300 seconds.");
-            }
-            if(Pitch==null||Pitch.Values==null||Pitch.TimesSeconds==null||Pitch.Values.Length<1||Pitch.Values.Length>200000||Pitch.Values.Length!=Pitch.TimesSeconds.Length)
-                throw new InvalidDataException("An absolute MIDI pitch curve is required.");
-            for(int i=0;i<Pitch.Values.Length;i++)if(!Finite(Pitch.Values[i])||!Finite(Pitch.TimesSeconds[i])||(i>0&&Pitch.TimesSeconds[i]<=Pitch.TimesSeconds[i-1]))throw new InvalidDataException("Invalid V4 pitch curve.");
-            if((Automations!=null&&Automations.Count!=0)||(PartProperties!=null&&PartProperties.Count!=0)||(NoteProperties!=null&&NoteProperties.Any(p=>p==null||p.Count!=0)))
-                throw new InvalidDataException("Direct V4 currently supports lyrics, absolute pitch and notes; engine-specific properties are not supported.");
-        }
-        static bool Finite(double x){return !Double.IsNaN(x)&&!Double.IsInfinity(x);}
-    }
-    public sealed class V4Call {
-        public int Protocol { get; set; }
-        public long Id { get; set; }
-        public string Operation { get; set; }
-        public V4Request Request { get; set; }
-    }
-    public sealed class V4Config {
-        public string EngineDirectory { get; set; }
-        public double TailMs { get; set; }
-        public double TimeoutSeconds { get; set; }
-    }
     /// <summary>Protocol-compatible x86 .NET Framework host; stdout is binary only.</summary>
     public static class NativeHost {
         const int MaxHeader=8*1024*1024;
@@ -84,6 +34,10 @@ namespace VocaloidBridge.V4 {
                         var call=json.Deserialize<V4Call>(Encoding.UTF8.GetString(frame));
                         var reply=new Dictionary<string,object>{{"Protocol",1},{"Id",call.Id}};
                         NativeAudio audio=null;
+                        string statsPath=null;
+                        bool paceRealtime=false;
+                        RenderStats stats=null;
+                        System.Diagnostics.Stopwatch wallWatch=null;
                         try {
                             if(call.Protocol!=1)throw new InvalidDataException("Unsupported bridge protocol.");
                             if(call.Operation=="voices") {
@@ -103,7 +57,16 @@ namespace VocaloidBridge.V4 {
                                     Console.Error.WriteLine("V4: encoding phrase for request "+call.Id);
                                     using(var phrase=frontend.Load(score)) {
                                         Console.Error.WriteLine("V4: synthesizing request "+call.Id);
-                                        audio=NativeSynthesis.Render(api,engine.Handle,phrase.DaisyBuffer);
+                                        // Real-time budget: the engine renders one 256-sample
+                                        // frame at a time, so per-frame cost decides whether the
+                                        // same audio can be streamed instead of batch-rendered.
+                                        statsPath=Environment.GetEnvironmentVariable("SVS_STREAM_STATS");
+                                        paceRealtime=Environment.GetEnvironmentVariable("SVS_STREAM_PACE")=="1";
+                                        stats=null;
+                                        if(statsPath!=null||paceRealtime){stats=new RenderStats();stats.BudgetMs=1000.0*256/44100.0;}
+                                        wallWatch=System.Diagnostics.Stopwatch.StartNew();
+                                        audio=NativeSynthesis.Render(api,engine.Handle,phrase.DaisyBuffer,null,stats,paceRealtime);
+                                        wallWatch.Stop();
                                     }
                                     Console.Error.WriteLine("V4: completed request "+call.Id);
                                 } finally {
@@ -115,6 +78,16 @@ namespace VocaloidBridge.V4 {
                                 if(!audio.Samples.Any(s=>Math.Abs(s)>0.000001f))throw new InvalidDataException("V4 returned silent PCM; synthesis is not verified.");
                                 reply["StartSeconds"]=audio.StartSeconds-V4ScoreWriter.OriginSeconds;
                                 reply["SampleRate"]=audio.SampleRate;reply["SampleCount"]=audio.Samples.Length;
+                                if(stats!=null){
+                                    var payload=new Dictionary<string,object>{{"frames",stats.Frames},{"budget_ms",stats.BudgetMs},
+                                        {"total_frame_ms",stats.TotalMs},{"p50_ms",stats.Percentile(0.5)},
+                                        {"p99_ms",stats.Percentile(0.99)},{"max_ms",stats.MaxMs},
+                                        {"late_frames",stats.LateFrames},{"realtime_factor",stats.RealtimeFactor},
+                                        {"wall_seconds",wallWatch.Elapsed.TotalSeconds},{"paced",paceRealtime}};
+                                    reply["FrameStats"]=payload;
+                                    statsPath=Environment.GetEnvironmentVariable("SVS_STREAM_STATS");
+                                    if(statsPath!=null)File.WriteAllText(statsPath,json.Serialize(payload));
+                                }
                             } else throw new InvalidDataException("Unknown bridge operation.");
                         } catch(Exception e) {reply["Error"]=e.GetBaseException().Message;WriteFrame(output,json.Serialize(reply));return;}
                         WriteFrame(output,json.Serialize(reply));
